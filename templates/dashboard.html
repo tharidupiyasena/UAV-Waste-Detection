@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Dashboard – UAV Waste Detection</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh}
+nav{background:#1e293b;border-bottom:1px solid #334155;padding:0 24px;display:flex;align-items:center;height:56px;gap:24px}
+nav .logo{font-size:1.1rem;font-weight:700;color:#38bdf8;text-decoration:none}
+nav a{color:#94a3b8;text-decoration:none;font-size:.9rem;padding:6px 12px;border-radius:6px;transition:.15s}
+nav a:hover,nav a.active{background:#334155;color:#e2e8f0}
+.page{max-width:1100px;margin:36px auto;padding:0 20px}
+h1{font-size:1.8rem;font-weight:700;color:#f1f5f9;margin-bottom:6px}
+.sub{color:#64748b;font-size:.95rem;margin-bottom:28px}
+
+/* stats summary */
+.summary{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:28px}
+.sum-card{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:16px 24px;text-align:center;min-width:130px}
+.sum-card .num{font-size:2rem;font-weight:700;color:#38bdf8}
+.sum-card .lbl{font-size:.8rem;color:#64748b;margin-top:4px;text-transform:uppercase;letter-spacing:.04em}
+
+/* filter bar */
+.filter-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;align-items:center}
+.filter-bar select,.filter-bar input{background:#1e293b;border:1px solid #334155;color:#e2e8f0;border-radius:8px;padding:8px 14px;font-size:.9rem}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border:none;border-radius:8px;font-size:.9rem;font-weight:600;cursor:pointer;transition:.15s;text-decoration:none}
+.btn-primary{background:#0ea5e9;color:#fff}.btn-primary:hover{background:#0284c7}
+.btn-amber{background:#f59e0b;color:#fff}.btn-amber:hover{background:#d97706}
+.btn-green{background:#10b981;color:#fff}.btn-green:hover{background:#059669}
+.btn-sm{padding:6px 14px;font-size:.82rem}
+
+/* grid */
+.img-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px}
+.img-card{background:#1e293b;border:1px solid #334155;border-radius:12px;overflow:hidden;transition:.2s}
+.img-card:hover{border-color:#475569}
+.img-card img{width:100%;height:170px;object-fit:cover;display:block}
+.img-card .info{padding:14px}
+.img-card .fname{font-size:.85rem;color:#94a3b8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:8px}
+.badges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.badge{padding:3px 10px;border-radius:12px;font-size:.75rem;font-weight:600}
+.b-blue{background:#0c2a4a;color:#38bdf8;border:1px solid #0ea5e9}
+.b-red{background:#2d0a0a;color:#f87171;border:1px solid #ef4444}
+.b-green{background:#052e16;color:#34d399;border:1px solid #10b981}
+.b-amber{background:#2d1a00;color:#fbbf24;border:1px solid #f59e0b}
+.b-gray{background:#1e293b;color:#64748b;border:1px solid #334155}
+.img-card .ts{font-size:.75rem;color:#475569;margin-bottom:10px}
+.img-card .actions{display:flex;gap:8px}
+
+/* empty state */
+.empty{text-align:center;padding:60px 20px;color:#475569}
+.empty .icon{font-size:3rem;margin-bottom:12px}
+
+/* loading */
+#loading{text-align:center;padding:60px;color:#64748b}
+.spinner{border:4px solid #334155;border-top:4px solid #38bdf8;border-radius:50%;width:40px;height:40px;animation:spin .8s linear infinite;margin:0 auto 14px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="logo" href="/">🛸 UAV Detect</a>
+  <a href="/">Detect</a>
+  <a href="/dashboard" class="active">Dashboard</a>
+</nav>
+
+<div class="page">
+  <h1>📊 Dashboard</h1>
+  <p class="sub">All uploaded images · Annotation status · Detection history</p>
+
+  <div class="summary" id="summary">
+    <div class="sum-card"><div class="num" id="s-total">–</div><div class="lbl">Total Images</div></div>
+    <div class="sum-card"><div class="num" id="s-detections">–</div><div class="lbl">With Detections</div></div>
+    <div class="sum-card"><div class="num" id="s-annotated">–</div><div class="lbl">Annotated</div></div>
+    <div class="sum-card"><div class="num" id="s-pending">–</div><div class="lbl">Not Annotated</div></div>
+  </div>
+
+  <div class="filter-bar">
+    <select id="filter-status" onchange="applyFilter()">
+      <option value="all">All Status</option>
+      <option value="not_annotated">Not Annotated</option>
+      <option value="pending">Pending</option>
+      <option value="annotated">Annotated</option>
+    </select>
+    <select id="filter-detect" onchange="applyFilter()">
+      <option value="all">All Results</option>
+      <option value="detected">Waste Detected</option>
+      <option value="clean">No Waste</option>
+    </select>
+    <button class="btn btn-primary btn-sm" onclick="loadImages()">🔄 Refresh</button>
+  </div>
+
+  <div id="loading"><div class="spinner"></div>Loading…</div>
+  <div class="img-grid" id="img-grid"></div>
+  <div class="empty" id="empty" style="display:none">
+    <div class="icon">📭</div>
+    <p>No images found. <a href="/" style="color:#38bdf8">Upload one now →</a></p>
+  </div>
+</div>
+
+<script>
+let allImages = [];
+
+async function loadImages(){
+  document.getElementById('loading').style.display='block';
+  document.getElementById('img-grid').innerHTML='';
+  document.getElementById('empty').style.display='none';
+  try{
+    const res = await fetch('/api/images');
+    allImages = await res.json();
+    updateSummary(allImages);
+    applyFilter();
+  }catch(e){ console.error(e); }
+  document.getElementById('loading').style.display='none';
+}
+
+function updateSummary(imgs){
+  document.getElementById('s-total').textContent = imgs.length;
+  document.getElementById('s-detections').textContent = imgs.filter(i=>i.total_detections>0).length;
+  document.getElementById('s-annotated').textContent = imgs.filter(i=>i.annotation_status==='annotated').length;
+  document.getElementById('s-pending').textContent = imgs.filter(i=>i.annotation_status!=='annotated').length;
+}
+
+function applyFilter(){
+  const st  = document.getElementById('filter-status').value;
+  const det = document.getElementById('filter-detect').value;
+  const filtered = allImages.filter(img => {
+    if(st!=='all' && img.annotation_status!==st) return false;
+    if(det==='detected' && img.total_detections===0) return false;
+    if(det==='clean' && img.total_detections>0) return false;
+    return true;
+  });
+  renderGrid(filtered);
+}
+
+function renderGrid(imgs){
+  const grid = document.getElementById('img-grid');
+  const empty= document.getElementById('empty');
+  if(!imgs.length){ grid.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  grid.innerHTML = imgs.map(img => {
+    const statusBadge = img.annotation_status==='annotated'
+      ? '<span class="badge b-green">✅ Annotated</span>'
+      : img.annotation_status==='pending'
+        ? '<span class="badge b-amber">⏳ Pending</span>'
+        : '<span class="badge b-gray">○ Not Annotated</span>';
+    const detBadge = img.total_detections>0
+      ? `<span class="badge b-red">⚠️ ${img.total_detections} detected</span>`
+      : '<span class="badge b-green">✅ Clean</span>';
+    const thumb = img.annotated_url || img.original_url;
+    const ts = img.created_at ? new Date(img.created_at).toLocaleString() : '';
+    return `<div class="img-card">
+      <img src="${thumb}" alt="img" loading="lazy"/>
+      <div class="info">
+        <div class="fname">${img.filename}</div>
+        <div class="badges">${detBadge}${statusBadge}</div>
+        <div class="ts">${ts}</div>
+        <div class="actions">
+          ${img.annotation_status!=='annotated'
+            ? `<button class="btn btn-amber btn-sm" onclick="annotateImg('${img.id}')">🏷️ Annotate</button>`
+            : `<button class="btn btn-green btn-sm" disabled>✅ Done</button>`}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function annotateImg(id){
+  const res = await fetch(`/annotate/${id}`,{method:'POST'});
+  const d   = await res.json();
+  if(d.success){
+    if(confirm('Image copied to annotation_images/.\nOpen Label Studio now?\n\nClick OK to open, then come back and refresh.'))
+      window.open(d.label_studio_url,'_blank');
+    // optimistically mark pending
+    allImages = allImages.map(i=> i.id===id ? {...i, annotation_status:'pending'} : i);
+    applyFilter();
+  }
+}
+
+loadImages();
+</script>
+</body>
+</html>

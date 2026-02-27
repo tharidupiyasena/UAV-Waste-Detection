@@ -1,0 +1,12 @@
+<View>
+  <Header value="UAV Waste Detection – Manual Annotation"/>
+  <Image name="image" value="$image" zoom="true" zoomControl="true" rotateControl="false"/>
+  <RectangleLabels name="label" toName="image" strokeWidth="3" showInline="true">
+    <Label value="Waste"            background="#ef4444"/>
+    <Label value="Plastic_Bag"      background="#f97316"/>
+    <Label value="Bottle"           background="#eab308"/>
+    <Label value="Cardboard"        background="#22c55e"/>
+    <Label value="Metal_Can"        background="#3b82f6"/>
+    <Label value="Other_Waste"      background="#a855f7"/>
+  </RectangleLabels>
+</View>
