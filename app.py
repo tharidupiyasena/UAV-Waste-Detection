@@ -1,22 +1,3 @@
-import os, ctypes, glob, subprocess, sys
-
-# ── Fix for missing system libs on Railway ───────────────────────────────────
-def fix_libs():
-    try:
-        lib_map = {
-            '/usr/lib/libGL.so.1':          ['/nix/store/*/lib/libGL.so.1', '/nix/store/*/lib/libGL.so'],
-            '/usr/lib/libgthread-2.0.so.0': ['/nix/store/*/lib/libgthread-2.0.so.0'],
-            '/usr/lib/libglib-2.0.so.0':    ['/nix/store/*/lib/libglib-2.0.so.0'],
-        }
-        for dst, patterns in lib_map.items():
-            if not os.path.exists(dst):
-                for pattern in patterns:
-                    matches = glob.glob(pattern)
-                    if matches:
-                        subprocess.run(['ln', '-sf', matches[0], dst], check=False)
-                        break
-    except Exception as e:
-        print(f"lib fix attempt: {e}")
 
 
 
