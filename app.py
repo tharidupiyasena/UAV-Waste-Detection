@@ -1,3 +1,25 @@
+import os, ctypes, glob, subprocess, sys
+
+# ── Fix for missing libGL.so.1 on Railway ────────────────────────────────────
+def fix_libgl():
+    try:
+        patterns = [
+            '/nix/store/*/lib/libGL.so.1',
+            '/nix/store/*/lib/libGL.so',
+        ]
+        for pattern in patterns:
+            matches = glob.glob(pattern)
+            if matches:
+                src = matches[0]
+                dst = '/usr/lib/libGL.so.1'
+                if not os.path.exists(dst):
+                    subprocess.run(['ln', '-sf', src, dst], check=False)
+                break
+    except Exception as e:
+        print(f"libGL fix attempt: {e}")
+
+fix_libgl()
+
 from flask import Flask, render_template, request, jsonify, send_from_directory
 import os, uuid, json, shutil, subprocess, sys
 from pathlib import Path
