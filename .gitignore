@@ -1,9 +1,5 @@
 venv/
 __pycache__/
 *.pyc
-static/uploads/
-static/results/
-annotation_images/
-label_studio_data/
 db.json
 weights/
