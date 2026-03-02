@@ -69,15 +69,24 @@ def run_sahi(image_path: str):
     """Run SAHI sliced inference, return (annotated_path | None, detections list)."""
     from sahi.predict import get_sliced_prediction
     import cv2
+    
+import psutil
+
+print(f"[MEM] Before SAHI: {psutil.Process().memory_info().rss / 1024**2:.1f} MB")
+# ... after result = get_sliced_prediction(...)
+print(f"[MEM] After SAHI: {psutil.Process().memory_info().rss / 1024**2:.1f} MB")
+
 
     result = get_sliced_prediction(
         image          = image_path,
         detection_model= detection_model,
-        slice_height   = 640,
-        slice_width    = 640,
-        overlap_height_ratio = 0.25,
-        overlap_width_ratio  = 0.25,
-        verbose        = 0
+        slice_height   = 512,               # reduced from 640
+        slice_width    = 512,
+        overlap_height_ratio = 0.15,        # reduced from 0.25
+        overlap_width_ratio  = 0.15,
+        verbose        = 0,
+        postprocess_type = "GREEDYNMS",     # helps reduce duplicate boxes
+        postprocess_match_threshold = 0.5
     )
 
     detections = []
@@ -97,11 +106,11 @@ def run_sahi(image_path: str):
     # Draw boxes with OpenCV
     img = cv2.imread(image_path)
     for d in detections:
-        x1,y1,x2,y2 = [int(v) for v in d["bbox"]]
-        cv2.rectangle(img, (x1,y1), (x2,y2), (0,255,80), 3)
+        x1, y1, x2, y2 = [int(v) for v in d["bbox"]]
+        cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 80), 3)
         label = f"{d['class']} {d['confidence']:.2f}"
-        cv2.putText(img, label, (x1, max(y1-8,0)),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,80), 2)
+        cv2.putText(img, label, (x1, max(y1 - 8, 0)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 80), 2)
 
     out_name = f"res_{Path(image_path).name}"
     out_path = os.path.join(RESULTS_FOLDER, out_name)
