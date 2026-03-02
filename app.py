@@ -82,7 +82,7 @@ def run_sahi(image_path: str):
         overlap_height_ratio=0.15,
         overlap_width_ratio=0.15,
         verbose=0,
-        postprocess_type="GREEDYNMS",
+        postprocess_type="GREEDYNMM",
         postprocess_match_threshold=0.5
     )
 
