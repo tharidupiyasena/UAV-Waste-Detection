@@ -1,0 +1,9 @@
+{
+  "$schema": "https://backboard.railway.app/railway.schema.json",
+  "deploy": {
+    "resources": {
+      "cpu": 4,
+      "memory": 4096  // in MiB; 4096 = 4 GB
+    }
+  }
+}
