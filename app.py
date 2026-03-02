@@ -1,24 +1,27 @@
 import os, ctypes, glob, subprocess, sys
 
-# ── Fix for missing libGL.so.1 on Railway ────────────────────────────────────
-def fix_libgl():
+# ── Fix for missing system libs on Railway ───────────────────────────────────
+def fix_libs():
     try:
-        patterns = [
-            '/nix/store/*/lib/libGL.so.1',
-            '/nix/store/*/lib/libGL.so',
-        ]
-        for pattern in patterns:
-            matches = glob.glob(pattern)
-            if matches:
-                src = matches[0]
-                dst = '/usr/lib/libGL.so.1'
-                if not os.path.exists(dst):
-                    subprocess.run(['ln', '-sf', src, dst], check=False)
-                break
+        lib_map = {
+            '/usr/lib/libGL.so.1':          ['/nix/store/*/lib/libGL.so.1', '/nix/store/*/lib/libGL.so'],
+            '/usr/lib/libgthread-2.0.so.0': ['/nix/store/*/lib/libgthread-2.0.so.0'],
+            '/usr/lib/libglib-2.0.so.0':    ['/nix/store/*/lib/libglib-2.0.so.0'],
+        }
+        for dst, patterns in lib_map.items():
+            if not os.path.exists(dst):
+                for pattern in patterns:
+                    matches = glob.glob(pattern)
+                    if matches:
+                        subprocess.run(['ln', '-sf', matches[0], dst], check=False)
+                        break
     except Exception as e:
-        print(f"libGL fix attempt: {e}")
+        print(f"lib fix attempt: {e}")
 
-fix_libgl()
+
+
+# ── Fix for missing libGL.so.1 on Railway ────────────────────────────────────
+
 
 from flask import Flask, render_template, request, jsonify, send_from_directory
 import os, uuid, json, shutil, subprocess, sys
