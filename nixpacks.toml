@@ -1,5 +1,6 @@
 [phases.build]
 cmds = [
-  "pip uninstall -y opencv-python || true",
-  "pip install -r requirements.txt"
+  "pip install -r requirements.txt",           # install everything first
+  "pip uninstall -y opencv-python || true",    # remove the GUI version
+  "pip install opencv-python-headless"         # force the server version
 ]
