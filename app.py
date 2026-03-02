@@ -62,6 +62,7 @@ def db_upsert(record: dict):
     db_save(d)
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────────────────
 def allowed(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED
 
@@ -70,24 +71,22 @@ def run_sahi(image_path: str):
     from sahi.predict import get_sliced_prediction
     import cv2
     
-import psutil
-
-print(f"[MEM] Before SAHI: {psutil.Process().memory_info().rss / 1024**2:.1f} MB")
-# ... after result = get_sliced_prediction(...)
-print(f"[MEM] After SAHI: {psutil.Process().memory_info().rss / 1024**2:.1f} MB")
-
+    import psutil
+    print(f"[MEM] Before SAHI inference: {psutil.Process().memory_info().rss / 1024**2:.1f} MB")
 
     result = get_sliced_prediction(
-        image          = image_path,
-        detection_model= detection_model,
-        slice_height   = 512,               # reduced from 640
-        slice_width    = 512,
-        overlap_height_ratio = 0.15,        # reduced from 0.25
-        overlap_width_ratio  = 0.15,
-        verbose        = 0,
-        postprocess_type = "GREEDYNMS",     # helps reduce duplicate boxes
-        postprocess_match_threshold = 0.5
+        image=image_path,
+        detection_model=detection_model,
+        slice_height=512,
+        slice_width=512,
+        overlap_height_ratio=0.15,
+        overlap_width_ratio=0.15,
+        verbose=0,
+        postprocess_type="GREEDYNMS",
+        postprocess_match_threshold=0.5
     )
+
+    print(f"[MEM] After SAHI inference:  {psutil.Process().memory_info().rss / 1024**2:.1f} MB")
 
     detections = []
     for obj in result.object_prediction_list:
@@ -117,6 +116,7 @@ print(f"[MEM] After SAHI: {psutil.Process().memory_info().rss / 1024**2:.1f} MB"
     cv2.imwrite(out_path, img)
     return out_path, detections
 
+# ── Routes ────────────────────────────────────────────────────────────────────
 # ── Routes ────────────────────────────────────────────────────────────────────
 @app.route('/')
 def index():
