@@ -23,7 +23,7 @@ DB_FILE             = 'db.json'
 for d in [UPLOAD_FOLDER, RESULTS_FOLDER, ANNOTATION_FOLDER, LABEL_STUDIO_DATA]:
     os.makedirs(d, exist_ok=True)
 
-app.config['MAX_CONTENT_LENGTH'] = 64 * 1024 * 1024   # 64 MB
+app.config['MAX_CONTENT_LENGTH'] = 64 * 1024 * 1024
 
 ALLOWED = {'png', 'jpg', 'jpeg', 'webp'}
 
@@ -98,7 +98,6 @@ def run_sahi(image_path: str):
     if not detections:
         return None, []
 
-    # Draw boxes
     img = cv2.imread(image_path)
     for d in detections:
         x1, y1, x2, y2 = [int(v) for v in d["bbox"]]
@@ -173,7 +172,7 @@ def detect():
         "detections":         detections
     })
 
-# ── UPDATED ANNOTATE ROUTE (Cloud Label Studio) ──────────────────────────────
+# ── Cloud Label Studio Annotate Route ────────────────────────────────────────
 @app.route('/annotate/<img_id>', methods=['POST'])
 def annotate(img_id):
     d = db_load()
@@ -189,14 +188,13 @@ def annotate(img_id):
 
     public_image_url = f"{request.host_url.rstrip('/')}{record['original_url']}"
 
-    # Get real image size
+    # Get real image dimensions
     try:
         img = cv2.imread(src_path)
         h, w = img.shape[:2]
     except:
         w, h = 1000, 1000
 
-    # Build pre-annotations
     results = []
     for det in record.get("detections", []):
         x1, y1, x2, y2 = [int(v) for v in det["bbox"]]
