@@ -1,87 +1,24 @@
-
-
-
-# ── Fix for missing libGL.so.1 on Railway ────────────────────────────────────
-
-
 from flask import Flask, render_template, request, jsonify, send_from_directory
-import os, uuid, json, shutil, subprocess, sys
+import os, uuid, json, shutil, requests, traceback
 from pathlib import Path
 from datetime import datetime
+import cv2
 
-
-#march3
-import requests
-
-# Add this near the top (after imports)
-LABEL_STUDIO_URL = "label-studio-production-9ece.up.railway.app"   # ← change to your real URL
-LABEL_STUDIO_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6ODA3OTczMTc0MCwiaWF0IjoxNzcyNTMxNzQwLCJqdGkiOiI0NjQxMDk4MjJlNmQ0MDk5OTIyMDY2NzQxMDUzZDY0ZiIsInVzZXJfaWQiOiIxIn0.qu6eJDi1IPvW1NxlMtcngUoQouq1oaBtaXBlO12zcSs"               # ← get from Label Studio → Account Settings → API Keys
-
-@app.route('/annotate/<img_id>', methods=['POST'])
-def annotate(img_id):
-    d = db_load()
-    if img_id not in d["images"]:
-        return jsonify({"success": False, "error": "Image not found"}), 404
-
-    record = d["images"][img_id]
-    src_path = record["original_url"].lstrip('/')
-    dst_path = os.path.join(ANNOTATION_FOLDER, record["filename"])
-    if not os.path.exists(dst_path):
-        shutil.copy2(src_path, dst_path)
-
-    # Public URL that Label Studio can read
-    public_image_url = f"{request.host_url.rstrip('/')}{record['original_url']}"
-
-    # Create task in Label Studio with your YOLO predictions as pre-annotations
-    headers = {"Authorization": f"Token {LABEL_STUDIO_API_KEY}"}
-    task_data = {
-        "data": {"image": public_image_url},
-        "predictions": [{
-            "model_version": "yolov8-waste",
-            "result": [
-                {
-                    "from_name": "label",
-                    "to_name": "image",
-                    "type": "rectanglelabels",
-                    "value": {
-                        "x": (d["bbox"][0] / img_width) * 100,   # convert pixel → %
-                        "y": (d["bbox"][1] / img_height) * 100,
-                        "width": (d["bbox"][2] - d["bbox"][0]) / img_width * 100,
-                        "height": (d["bbox"][3] - d["bbox"][1]) / img_height * 100,
-                        "rectanglelabels": [d["class"]]
-                    }
-                } for d in record["detections"]
-            ]
-        }]
-    }
-
-    r = requests.post(f"{LABEL_STUDIO_URL}/api/projects/1/tasks", json=task_data, headers=headers)
-    task_id = r.json()["id"]
-
-    # Return direct link to this exact task
-    task_url = f"{LABEL_STUDIO_URL}/tasks/{task_id}"
-
-    record["annotation_status"] = "pending"
-    db_upsert(record)
-
-    return jsonify({
-        "success": True,
-        "label_studio_url": task_url,           # ← opens exactly the image + pre-boxes
-        "task_id": task_id
-    })
-
-
-
-
-
+# ── Flask App ────────────────────────────────────────────────────────────────
 app = Flask(__name__)
+
+# ── Label Studio Cloud Configuration ─────────────────────────────────────────
+# CHANGE THESE 3 LINES WITH YOUR REAL VALUES
+LABEL_STUDIO_URL = "https://label-studio-production-9ece.up.railway.app"   # ← Add https://
+LABEL_STUDIO_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6ODA3OTczMTc0MCwiaWF0IjoxNzcyNTMxNzQwLCJqdGkiOiI0NjQxMDk4MjJlNmQ0MDk5OTIyMDY2NzQxMDUzZDY0ZiIsInVzZXJfaWQiOiIxIn0.qu6eJDi1IPvW1NxlMtcngUoQouq1oaBtaXBlO12zcSs"
+LABEL_STUDIO_PROJECT_ID = 1                                               # Usually 1
 
 # ── Folders ──────────────────────────────────────────────────────────────────
 UPLOAD_FOLDER       = 'static/uploads'
 RESULTS_FOLDER      = 'static/results'
 ANNOTATION_FOLDER   = 'annotation_images'
 LABEL_STUDIO_DATA   = 'label_studio_data'
-DB_FILE             = 'db.json'          # lightweight JSON "database"
+DB_FILE             = 'db.json'
 
 for d in [UPLOAD_FOLDER, RESULTS_FOLDER, ANNOTATION_FOLDER, LABEL_STUDIO_DATA]:
     os.makedirs(d, exist_ok=True)
@@ -127,7 +64,6 @@ def db_upsert(record: dict):
     db_save(d)
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-# ── Helpers ───────────────────────────────────────────────────────────────────
 def allowed(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED
 
@@ -135,8 +71,8 @@ def run_sahi(image_path: str):
     """Run SAHI sliced inference, return (annotated_path | None, detections list)."""
     from sahi.predict import get_sliced_prediction
     import cv2
-    
     import psutil
+
     print(f"[MEM] Before SAHI inference: {psutil.Process().memory_info().rss / 1024**2:.1f} MB")
 
     result = get_sliced_prediction(
@@ -158,16 +94,13 @@ def run_sahi(image_path: str):
         detections.append({
             "class":      obj.category.name,
             "confidence": round(float(obj.score.value), 4),
-            "bbox":       [
-                obj.bbox.minx, obj.bbox.miny,
-                obj.bbox.maxx, obj.bbox.maxy
-            ]
+            "bbox":       [obj.bbox.minx, obj.bbox.miny, obj.bbox.maxx, obj.bbox.maxy]
         })
 
     if not detections:
         return None, []
 
-    # Draw boxes with OpenCV
+    # Draw boxes
     img = cv2.imread(image_path)
     for d in detections:
         x1, y1, x2, y2 = [int(v) for v in d["bbox"]]
@@ -182,7 +115,6 @@ def run_sahi(image_path: str):
     return out_path, detections
 
 # ── Routes ────────────────────────────────────────────────────────────────────
-# ── Routes ────────────────────────────────────────────────────────────────────
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -194,8 +126,7 @@ def dashboard():
 @app.route('/api/images')
 def api_images():
     d = db_load()
-    images = sorted(d["images"].values(),
-                    key=lambda x: x.get("created_at",""), reverse=True)
+    images = sorted(d["images"].values(), key=lambda x: x.get("created_at",""), reverse=True)
     return jsonify(images)
 
 @app.route('/detect', methods=['POST'])
@@ -218,19 +149,17 @@ def detect():
     try:
         ann_path, detections = run_sahi(img_path)
     except Exception as e:
-        import traceback; traceback.print_exc()
+        traceback.print_exc()
         return jsonify({"success": False, "error": str(e)}), 500
 
-    annotated_url = None
-    if ann_path:
-        annotated_url = f"/{ann_path}"
+    annotated_url = f"/{ann_path}" if ann_path else None
 
     record = {
         "id":              img_id,
         "filename":        filename,
         "original_url":    f"/static/uploads/{filename}",
         "annotated_url":   annotated_url,
-        "total_detections":len(detections),
+        "total_detections": len(detections),
         "detections":      detections,
         "annotation_status": "not_annotated",
         "created_at":      datetime.utcnow().isoformat()
@@ -242,31 +171,79 @@ def detect():
         "id":                 img_id,
         "total_detections":   len(detections),
         "original_image_url": record["original_url"],
-        "annotated_image_url":annotated_url,
+        "annotated_image_url": annotated_url,
         "detections":         detections
     })
 
+# ── UPDATED ANNOTATE ROUTE (Cloud Label Studio) ──────────────────────────────
 @app.route('/annotate/<img_id>', methods=['POST'])
 def annotate(img_id):
-    """Copy image to annotation_images/ and open Label Studio."""
     d = db_load()
     if img_id not in d["images"]:
         return jsonify({"success": False, "error": "Image not found"}), 404
 
-    record   = d["images"][img_id]
-    src_path = record["original_url"].lstrip('/')          # static/uploads/xxx.jpg
+    record = d["images"][img_id]
+    src_path = record["original_url"].lstrip('/')
     dst_path = os.path.join(ANNOTATION_FOLDER, record["filename"])
 
     if not os.path.exists(dst_path):
         shutil.copy2(src_path, dst_path)
 
+    public_image_url = f"{request.host_url.rstrip('/')}{record['original_url']}"
+
+    # Get real image size for percentage conversion
+    try:
+        img = cv2.imread(src_path)
+        h, w = img.shape[:2]
+    except:
+        w, h = 1000, 1000  # fallback
+
+    # Build Label Studio prediction format
+    results = []
+    for det in record.get("detections", []):
+        x1, y1, x2, y2 = [int(v) for v in det["bbox"]]
+        results.append({
+            "from_name": "label",
+            "to_name": "image",
+            "type": "rectanglelabels",
+            "value": {
+                "x": (x1 / w) * 100,
+                "y": (y1 / h) * 100,
+                "width": ((x2 - x1) / w) * 100,
+                "height": ((y2 - y1) / h) * 100,
+                "rectanglelabels": [det["class"]]
+            }
+        })
+
+    headers = {"Authorization": f"Token {LABEL_STUDIO_API_KEY}"}
+    task_data = {
+        "project": LABEL_STUDIO_PROJECT_ID,
+        "data": {"image": public_image_url},
+        "predictions": [{"result": results}] if results else []
+    }
+
+    try:
+        r = requests.post(
+            f"{LABEL_STUDIO_URL}/api/projects/{LABEL_STUDIO_PROJECT_ID}/tasks",
+            json=task_data,
+            headers=headers,
+            timeout=10
+        )
+        r.raise_for_status()
+        task = r.json()
+        task_url = f"{LABEL_STUDIO_URL}/tasks/{task['id']}"
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"success": False, "error": f"Label Studio error: {str(e)}"}), 500
+
     record["annotation_status"] = "pending"
     db_upsert(record)
 
-    # Return the Label Studio URL so the frontend can open it
-    ls_url = "http://localhost:8080"
-    return jsonify({"success": True, "label_studio_url": ls_url,
-                    "image_copied_to": dst_path})
+    return jsonify({
+        "success": True,
+        "label_studio_url": task_url,
+        "task_id": task["id"]
+    })
 
 @app.route('/api/mark_annotated/<img_id>', methods=['POST'])
 def mark_annotated(img_id):
