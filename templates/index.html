@@ -127,17 +127,18 @@ h1{font-size:1.8rem;font-weight:700;color:#f1f5f9;margin-bottom:6px}
   <div id="err-container"></div>
 </div>
 
-<!-- Label Studio Modal -->
+<!-- Label Studio Modal (Cloud Version) march 3-->
 <div class="modal-bg" id="ls-modal">
   <div class="modal">
     <h2>🏷️ Open Label Studio</h2>
-    <p id="ls-msg">The image has been copied to <code>annotation_images/</code>.<br>
-    Label Studio will open in a new tab at <strong>localhost:8080</strong>.<br><br>
-    After annotating, click <em>"Mark as Annotated"</em> to update the dashboard.</p>
+    <p id="ls-msg">Image ready in Label Studio cloud.<br>
+    <strong>Your pre-annotated task will open in a new tab.</strong><br><br>
+    Correct the boxes if needed, then click Save.<br>
+    After finishing, come back and click "Mark as Annotated".</p>
     <div class="btns">
-      <button class="btn btn-primary" id="open-ls-btn" onclick="openLS()">Open Label Studio</button>
+      <button class="btn btn-primary" id="open-ls-btn" onclick="openLS()">🚀 Open in Label Studio</button>
       <button class="btn btn-green" id="mark-ann-btn" onclick="markAnnotated()">✅ Mark as Annotated</button>
-      <button class="btn" style="background:#334155;color:#94a3b8" onclick="closeModal()">Close</button>
+      <button class="btn" style="background:#334155;color:#94a3b8" onclick="closeModal()">Cancel</button>
     </div>
   </div>
 </div>
