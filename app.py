@@ -9,6 +9,71 @@ import os, uuid, json, shutil, subprocess, sys
 from pathlib import Path
 from datetime import datetime
 
+
+#march3
+import requests
+
+# Add this near the top (after imports)
+LABEL_STUDIO_URL = "label-studio-production-9ece.up.railway.app"   # ← change to your real URL
+LABEL_STUDIO_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6ODA3OTczMTc0MCwiaWF0IjoxNzcyNTMxNzQwLCJqdGkiOiI0NjQxMDk4MjJlNmQ0MDk5OTIyMDY2NzQxMDUzZDY0ZiIsInVzZXJfaWQiOiIxIn0.qu6eJDi1IPvW1NxlMtcngUoQouq1oaBtaXBlO12zcSs"               # ← get from Label Studio → Account Settings → API Keys
+
+@app.route('/annotate/<img_id>', methods=['POST'])
+def annotate(img_id):
+    d = db_load()
+    if img_id not in d["images"]:
+        return jsonify({"success": False, "error": "Image not found"}), 404
+
+    record = d["images"][img_id]
+    src_path = record["original_url"].lstrip('/')
+    dst_path = os.path.join(ANNOTATION_FOLDER, record["filename"])
+    if not os.path.exists(dst_path):
+        shutil.copy2(src_path, dst_path)
+
+    # Public URL that Label Studio can read
+    public_image_url = f"{request.host_url.rstrip('/')}{record['original_url']}"
+
+    # Create task in Label Studio with your YOLO predictions as pre-annotations
+    headers = {"Authorization": f"Token {LABEL_STUDIO_API_KEY}"}
+    task_data = {
+        "data": {"image": public_image_url},
+        "predictions": [{
+            "model_version": "yolov8-waste",
+            "result": [
+                {
+                    "from_name": "label",
+                    "to_name": "image",
+                    "type": "rectanglelabels",
+                    "value": {
+                        "x": (d["bbox"][0] / img_width) * 100,   # convert pixel → %
+                        "y": (d["bbox"][1] / img_height) * 100,
+                        "width": (d["bbox"][2] - d["bbox"][0]) / img_width * 100,
+                        "height": (d["bbox"][3] - d["bbox"][1]) / img_height * 100,
+                        "rectanglelabels": [d["class"]]
+                    }
+                } for d in record["detections"]
+            ]
+        }]
+    }
+
+    r = requests.post(f"{LABEL_STUDIO_URL}/api/projects/1/tasks", json=task_data, headers=headers)
+    task_id = r.json()["id"]
+
+    # Return direct link to this exact task
+    task_url = f"{LABEL_STUDIO_URL}/tasks/{task_id}"
+
+    record["annotation_status"] = "pending"
+    db_upsert(record)
+
+    return jsonify({
+        "success": True,
+        "label_studio_url": task_url,           # ← opens exactly the image + pre-boxes
+        "task_id": task_id
+    })
+
+
+
+
+
 app = Flask(__name__)
 
 # ── Folders ──────────────────────────────────────────────────────────────────
