@@ -144,8 +144,9 @@ h1{font-size:1.8rem;font-weight:700;color:#f1f5f9;margin-bottom:6px}
 </div>
 
 <script>
-let currentId   = null;
-let lsUrl       = null;
+let allImages = [];
+let currentId = null;
+let lsUrl = '';
 const input     = document.getElementById('img-input');
 const preview   = document.getElementById('preview-img');
 const previewBox= document.getElementById('preview-box');
@@ -222,7 +223,7 @@ function renderResults(d){
   document.getElementById('results').style.display='block';
 }
 
-let lsUrl = '';  // global variable to store the cloud URL
+//let lsUrl = '';  // global variable to store the cloud URL
 
 async function openAnnotateModal(){
   if(!currentId) return;
