@@ -3,15 +3,15 @@ import os, uuid, json, shutil, requests, traceback
 from pathlib import Path
 from datetime import datetime
 import cv2
+import psutil
 
 # ── Flask App ────────────────────────────────────────────────────────────────
 app = Flask(__name__)
 
 # ── Label Studio Cloud Configuration ─────────────────────────────────────────
-# CHANGE THESE 3 LINES WITH YOUR REAL VALUES
-LABEL_STUDIO_URL = "https://label-studio-production-9ece.up.railway.app"   # ← Add https://
+LABEL_STUDIO_URL = "https://label-studio-production-9ece.up.railway.app"
 LABEL_STUDIO_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6ODA3OTczMTc0MCwiaWF0IjoxNzcyNTMxNzQwLCJqdGkiOiI0NjQxMDk4MjJlNmQ0MDk5OTIyMDY2NzQxMDUzZDY0ZiIsInVzZXJfaWQiOiIxIn0.qu6eJDi1IPvW1NxlMtcngUoQouq1oaBtaXBlO12zcSs"
-LABEL_STUDIO_PROJECT_ID = 1                                               # Usually 1
+LABEL_STUDIO_PROJECT_ID = 1
 
 # ── Folders ──────────────────────────────────────────────────────────────────
 UPLOAD_FOLDER       = 'static/uploads'
@@ -68,10 +68,8 @@ def allowed(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED
 
 def run_sahi(image_path: str):
-    """Run SAHI sliced inference, return (annotated_path | None, detections list)."""
+    """Run SAHI sliced inference"""
     from sahi.predict import get_sliced_prediction
-    import cv2
-    import psutil
 
     print(f"[MEM] Before SAHI inference: {psutil.Process().memory_info().rss / 1024**2:.1f} MB")
 
@@ -191,14 +189,14 @@ def annotate(img_id):
 
     public_image_url = f"{request.host_url.rstrip('/')}{record['original_url']}"
 
-    # Get real image size for percentage conversion
+    # Get real image size
     try:
         img = cv2.imread(src_path)
         h, w = img.shape[:2]
     except:
-        w, h = 1000, 1000  # fallback
+        w, h = 1000, 1000
 
-    # Build Label Studio prediction format
+    # Build pre-annotations
     results = []
     for det in record.get("detections", []):
         x1, y1, x2, y2 = [int(v) for v in det["bbox"]]
