@@ -222,17 +222,36 @@ function renderResults(d){
   document.getElementById('results').style.display='block';
 }
 
+let lsUrl = '';  // global variable to store the cloud URL
+
 async function openAnnotateModal(){
   if(!currentId) return;
-  const res=await fetch(`/annotate/${currentId}`,{method:'POST'});
-  const d=await res.json();
+  
+  const res = await fetch(`/annotate/${currentId}`, {method:'POST'});
+  const d = await res.json();
+  
   if(d.success){
-    lsUrl=d.label_studio_url;
+    lsUrl = d.label_studio_url;  // now this will be the cloud URL, e.g. https://label-studio-xxx.up.railway.app/tasks/42
+    
+    // Show modal with friendly message
     document.getElementById('ls-modal').classList.add('show');
+    
+    // Optional: auto-open after 1 second (uncomment if you want)
+    // setTimeout(() => { if(lsUrl) window.open(lsUrl, '_blank'); }, 1000);
   } else {
-    showErr(d.error);
+    showErr(d.error || 'Failed to prepare annotation');
   }
 }
+
+function openLS(){
+  if(lsUrl){
+    window.open(lsUrl, '_blank');
+  } else {
+    alert('No Label Studio URL available yet.');
+  }
+}
+
+  
 function openLS(){ if(lsUrl) window.open(lsUrl,'_blank'); }
 async function markAnnotated(){
   if(!currentId) return;
