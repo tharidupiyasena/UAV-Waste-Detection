@@ -10,7 +10,7 @@ app = Flask(__name__)
 
 # ── Label Studio Cloud Configuration ─────────────────────────────────────────
 LABEL_STUDIO_URL = "https://label-studio-production-9ece.up.railway.app"
-LABEL_STUDIO_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6ODA3OTczMTc0MCwiaWF0IjoxNzcyNTMxNzQwLCJqdGkiOiI0NjQxMDk4MjJlNmQ0MDk5OTIyMDY2NzQxMDUzZDY0ZiIsInVzZXJfaWQiOiIxIn0.qu6eJDi1IPvW1NxlMtcngUoQouq1oaBtaXBlO12zcSs"
+LABEL_STUDIO_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6ODA4MDE5NjE5MSwiaWF0IjoxNzcyOTk2MTkxLCJqdGkiOiJlZmQ3Y2ZmYTQwMmM0NDg4OWYxODkwNDBiZDI0MGNlMSIsInVzZXJfaWQiOiIxIn0.Q7Dmve2QhErbfFdLHWCK8ZgVmBDjIGP3lIvG9TR-S2U"
 LABEL_STUDIO_PROJECT_ID = 1
 
 # ── Folders ──────────────────────────────────────────────────────────────────
