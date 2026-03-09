@@ -9,8 +9,8 @@ import psutil
 app = Flask(__name__)
 
 # ── Label Studio Cloud Configuration ─────────────────────────────────────────
-LABEL_STUDIO_URL = "https://label-studio-production-9ece.up.railway.app"
-LABEL_STUDIO_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6ODA4MDE5NjE5MSwiaWF0IjoxNzcyOTk2MTkxLCJqdGkiOiJlZmQ3Y2ZmYTQwMmM0NDg4OWYxODkwNDBiZDI0MGNlMSIsInVzZXJfaWQiOiIxIn0.Q7Dmve2QhErbfFdLHWCK8ZgVmBDjIGP3lIvG9TR-S2U"
+LABEL_STUDIO_URL = os.environ.get("LABEL_STUDIO_URL", "https://label-studio-production-9ece.up.railway.app")
+LABEL_STUDIO_API_KEY = os.environ.get("LABEL_STUDIO_TOKEN", "")
 LABEL_STUDIO_PROJECT_ID = 1
 
 # ── Folders ──────────────────────────────────────────────────────────────────
@@ -211,7 +211,7 @@ def annotate(img_id):
             }
         })
 
-    headers = {"Authorization": f"Token {LABEL_STUDIO_API_KEY}"}
+    headers = {"Authorization": f"Bearer {LABEL_STUDIO_API_KEY}"}
     task_data = {
         "project": LABEL_STUDIO_PROJECT_ID,
         "data": {"image": public_image_url},
