@@ -211,7 +211,7 @@ def annotate(img_id):
             }
         })
 
-    headers = {"Authorization": f"Bearer {LABEL_STUDIO_API_KEY}"}
+    headers = {"Authorization": f"Token {LABEL_STUDIO_API_KEY}"}
     task_data = {
         "project": LABEL_STUDIO_PROJECT_ID,
         "data": {"image": public_image_url},
