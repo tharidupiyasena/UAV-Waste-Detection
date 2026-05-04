@@ -1,12 +1,31 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, session
 import os, uuid, json, shutil, requests, traceback
 from pathlib import Path
 from datetime import datetime
 import cv2
 import psutil
+from supabase import create_client, Client
+from functools import wraps
 
 # ── Flask App ────────────────────────────────────────────────────────────────
 app = Flask(__name__)
+app.secret_key = os.environ.get("SECRET_KEY") or os.urandom(24)
+
+# ── Supabase Auth ────────────────────────────────────────────────────────────
+supabase: Client = create_client(
+    os.environ.get("SUPABASE_URL"),
+    os.environ.get("SUPABASE_KEY")
+)
+
+# ── Login Required Decorator ────────────────────────────────────────────────
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user' not in session:
+            flash("Please log in to access this page.")
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 # ── Label Studio Cloud Configuration ─────────────────────────────────────────
 LABEL_STUDIO_URL = os.environ.get("LABEL_STUDIO_URL", "https://label-studio-production-9ece.up.railway.app")
@@ -40,9 +59,9 @@ def load_model():
             confidence_threshold=0.25,
             device='cpu'
         )
-        print("✅  SAHI + YOLOv8 model loaded")
+        print("✅ SAHI + YOLOv8 model loaded")
     except Exception as e:
-        print(f"⚠️  Model load failed: {e}")
+        print(f"⚠️ Model load failed: {e}")
         detection_model = None
 
 load_model()
@@ -68,10 +87,8 @@ def allowed(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED
 
 def run_sahi(image_path: str):
-    """Run SAHI sliced inference"""
     from sahi.predict import get_sliced_prediction
-
-    print(f"[MEM] Before SAHI inference: {psutil.Process().memory_info().rss / 1024**2:.1f} MB")
+    print(f"[MEM] Before SAHI: {psutil.Process().memory_info().rss / 1024**2:.1f} MB")
 
     result = get_sliced_prediction(
         image=image_path,
@@ -85,7 +102,7 @@ def run_sahi(image_path: str):
         postprocess_match_threshold=0.5
     )
 
-    print(f"[MEM] After SAHI inference:  {psutil.Process().memory_info().rss / 1024**2:.1f} MB")
+    print(f"[MEM] After SAHI:  {psutil.Process().memory_info().rss / 1024**2:.1f} MB")
 
     detections = []
     for obj in result.object_prediction_list:
@@ -111,23 +128,69 @@ def run_sahi(image_path: str):
     cv2.imwrite(out_path, img)
     return out_path, detections
 
-# ── Routes ────────────────────────────────────────────────────────────────────
+# ====================== AUTH ROUTES ======================
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        
+        try:
+            res = supabase.auth.sign_up({"email": email, "password": password})
+            flash("Registration successful! Please check your email to confirm your account.")
+            return redirect(url_for('login'))
+        except Exception as e:
+            flash(f"Registration error: {str(e)}")
+    
+    return render_template('register.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        
+        try:
+            res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+            session['user'] = {
+                'id': res.user.id,
+                'email': res.user.email
+            }
+            flash("Login successful!")
+            return redirect(url_for('index'))
+        except Exception as e:
+            flash(f"Login failed: {str(e)}")
+    
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    try:
+        supabase.auth.sign_out()
+    except:
+        pass
+    flash("You have been logged out.")
+    return redirect(url_for('login'))
+
+# ====================== MAIN ROUTES ======================
+
 @app.route('/')
+@login_required
 def index():
     return render_template('index.html')
 
 @app.route('/dashboard')
+@login_required
 def dashboard():
     return render_template('dashboard.html')
 
-@app.route('/api/images')
-def api_images():
-    d = db_load()
-    images = sorted(d["images"].values(), key=lambda x: x.get("created_at",""), reverse=True)
-    return jsonify(images)
-
+# ── Protected Routes ───────────────────────────────────────────────────────
 @app.route('/detect', methods=['POST'])
+@login_required
 def detect():
+    # ... (your original detect code - unchanged)
     if 'image' not in request.files:
         return jsonify({"success": False, "error": "No image received"}), 400
 
@@ -159,7 +222,8 @@ def detect():
         "total_detections": len(detections),
         "detections":      detections,
         "annotation_status": "not_annotated",
-        "created_at":      datetime.utcnow().isoformat()
+        "created_at":      datetime.utcnow().isoformat(),
+        "user_id":         session['user']['id']   # ← Added for future user filtering
     }
     db_upsert(record)
 
@@ -172,9 +236,18 @@ def detect():
         "detections":         detections
     })
 
-# ── Cloud Label Studio Annotate Route ────────────────────────────────────────
+# Keep all other routes unchanged
+@app.route('/api/images')
+@login_required
+def api_images():
+    d = db_load()
+    images = sorted(d["images"].values(), key=lambda x: x.get("created_at",""), reverse=True)
+    return jsonify(images)
+
 @app.route('/annotate/<img_id>', methods=['POST'])
+@login_required
 def annotate(img_id):
+    # ... your original code (unchanged)
     d = db_load()
     if img_id not in d["images"]:
         return jsonify({"success": False, "error": "Image not found"}), 404
@@ -188,7 +261,6 @@ def annotate(img_id):
 
     public_image_url = f"{request.host_url.rstrip('/')}{record['original_url']}"
 
-    # Get real image dimensions
     try:
         img = cv2.imread(src_path)
         h, w = img.shape[:2]
@@ -242,6 +314,7 @@ def annotate(img_id):
     })
 
 @app.route('/api/mark_annotated/<img_id>', methods=['POST'])
+@login_required
 def mark_annotated(img_id):
     d = db_load()
     if img_id not in d["images"]:
