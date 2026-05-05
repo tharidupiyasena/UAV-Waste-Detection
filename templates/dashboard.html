@@ -7,50 +7,76 @@
   <h1>📊 Dashboard</h1>
   <p class="sub">All uploaded images · Annotation status · Detection history</p>
 
-  <div class="summary" id="summary">
-    <div class="sum-card"><div class="num" id="s-total">–</div><div class="lbl">Total Images</div></div>
-    <div class="sum-card"><div class="num" id="s-detections">–</div><div class="lbl">With Detections</div></div>
-    <div class="sum-card"><div class="num" id="s-annotated">–</div><div class="lbl">Annotated</div></div>
-    <div class="sum-card"><div class="num" id="s-pending">–</div><div class="lbl">Not Annotated</div></div>
+  <!-- Summary Cards -->
+  <div class="summary" id="summary" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin: 24px 0;">
+    <div class="sum-card" style="background:#1e2937; border:1px solid #334155; border-radius:12px; padding:20px; text-align:center;">
+      <div class="num" id="s-total" style="font-size:2.4rem; font-weight:700; color:#38bdf8;">–</div>
+      <div class="lbl" style="color:#94a3b8; font-size:0.95rem; margin-top:4px;">Total Images</div>
+    </div>
+    <div class="sum-card" style="background:#1e2937; border:1px solid #334155; border-radius:12px; padding:20px; text-align:center;">
+      <div class="num" id="s-detections" style="font-size:2.4rem; font-weight:700; color:#f87171;">–</div>
+      <div class="lbl" style="color:#94a3b8; font-size:0.95rem; margin-top:4px;">With Detections</div>
+    </div>
+    <div class="sum-card" style="background:#1e2937; border:1px solid #334155; border-radius:12px; padding:20px; text-align:center;">
+      <div class="num" id="s-annotated" style="font-size:2.4rem; font-weight:700; color:#4ade80;">–</div>
+      <div class="lbl" style="color:#94a3b8; font-size:0.95rem; margin-top:4px;">Annotated</div>
+    </div>
+    <div class="sum-card" style="background:#1e2937; border:1px solid #334155; border-radius:12px; padding:20px; text-align:center;">
+      <div class="num" id="s-pending" style="font-size:2.4rem; font-weight:700; color:#fbbf24;">–</div>
+      <div class="lbl" style="color:#94a3b8; font-size:0.95rem; margin-top:4px;">Not Annotated</div>
+    </div>
   </div>
 
-  <div class="filter-bar">
-    <select id="filter-status" onchange="applyFilter()">
+  <!-- Filters -->
+  <div class="filter-bar" style="background:#1e2937; padding:16px; border-radius:12px; border:1px solid #334155; margin-bottom:24px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+    <select id="filter-status" onchange="applyFilter()" style="padding:10px 14px; background:#0f172a; border:1px solid #475569; border-radius:8px; color:white;">
       <option value="all">All Status</option>
       <option value="not_annotated">Not Annotated</option>
       <option value="pending">Pending</option>
       <option value="annotated">Annotated</option>
     </select>
-    <select id="filter-detect" onchange="applyFilter()">
+    <select id="filter-detect" onchange="applyFilter()" style="padding:10px 14px; background:#0f172a; border:1px solid #475569; border-radius:8px; color:white;">
       <option value="all">All Results</option>
       <option value="detected">Waste Detected</option>
       <option value="clean">No Waste</option>
     </select>
-    <button class="btn btn-primary btn-sm" onclick="loadImages()">🔄 Refresh</button>
+    <button class="btn btn-primary btn-sm" onclick="loadImages()" style="padding:10px 20px; background:#0ea5e9; border:none; border-radius:8px; color:white; font-weight:600; cursor:pointer;">
+      🔄 Refresh
+    </button>
   </div>
 
-  <div id="loading"><div class="spinner"></div>Loading…</div>
-  <div class="img-grid" id="img-grid"></div>
-  <div class="empty" id="empty" style="display:none">
-    <div class="icon">📭</div>
-    <p>No images found. <a href="/" style="color:#38bdf8">Upload one now →</a></p>
+  <div id="loading" style="text-align:center; padding:40px; display:none;">
+    <div class="spinner" style="border:4px solid #334155; border-top:4px solid #38bdf8; border-radius:50%; width:40px; height:40px; animation:spin 1s linear infinite; margin:0 auto 16px;"></div>
+    <p style="color:#64748b;">Loading images...</p>
+  </div>
+
+  <div class="img-grid" id="img-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;"></div>
+
+  <div class="empty" id="empty" style="display:none; text-align:center; padding:60px 20px; background:#1e2937; border-radius:12px; border:1px solid #334155;">
+    <div class="icon" style="font-size:4rem; margin-bottom:16px;">📭</div>
+    <p style="color:#94a3b8; font-size:1.1rem;">No images found.</p>
+    <a href="/" style="color:#38bdf8; text-decoration:none; font-weight:500;">Upload one now →</a>
   </div>
 </div>
 
 <script>
-<!-- Your entire dashboard script remains unchanged -->
+// Your existing script (kept almost unchanged)
 let allImages = [];
 
 async function loadImages(){
   document.getElementById('loading').style.display='block';
   document.getElementById('img-grid').innerHTML='';
   document.getElementById('empty').style.display='none';
+  
   try{
     const res = await fetch('/api/images');
     allImages = await res.json();
     updateSummary(allImages);
     applyFilter();
-  }catch(e){ console.error(e); }
+  }catch(e){ 
+    console.error(e); 
+  }
+  
   document.getElementById('loading').style.display='none';
 }
 
@@ -64,53 +90,67 @@ function updateSummary(imgs){
 function applyFilter(){
   const st  = document.getElementById('filter-status').value;
   const det = document.getElementById('filter-detect').value;
+  
   const filtered = allImages.filter(img => {
     if(st!=='all' && img.annotation_status!==st) return false;
     if(det==='detected' && img.total_detections===0) return false;
     if(det==='clean' && img.total_detections>0) return false;
     return true;
   });
+  
   renderGrid(filtered);
 }
 
 function renderGrid(imgs){
   const grid = document.getElementById('img-grid');
-  const empty= document.getElementById('empty');
-  if(!imgs.length){ grid.innerHTML=''; empty.style.display='block'; return; }
-  empty.style.display='none';
+  const empty = document.getElementById('empty');
+  
+  if(!imgs.length){
+    grid.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  
+  empty.style.display = 'none';
+  
   grid.innerHTML = imgs.map(img => {
     const statusBadge = img.annotation_status==='annotated'
-      ? '<span class="badge b-green">✅ Annotated</span>'
+      ? '<span style="background:#166534;color:#86efac;padding:4px 10px;border-radius:9999px;font-size:0.8rem;">✅ Annotated</span>'
       : img.annotation_status==='pending'
-        ? '<span class="badge b-amber">⏳ Pending</span>'
-        : '<span class="badge b-gray">○ Not Annotated</span>';
+        ? '<span style="background:#854d0e;color:#fcd34d;padding:4px 10px;border-radius:9999px;font-size:0.8rem;">⏳ Pending</span>'
+        : '<span style="background:#334155;color:#cbd5e1;padding:4px 10px;border-radius:9999px;font-size:0.8rem;">○ Not Annotated</span>';
+    
     const detBadge = img.total_detections>0
-      ? `<span class="badge b-red">⚠️ ${img.total_detections} detected</span>`
-      : '<span class="badge b-green">✅ Clean</span>';
+      ? `<span style="background:#991b1b;color:#fda4af;padding:4px 10px;border-radius:9999px;font-size:0.8rem;">⚠️ ${img.total_detections} detected</span>`
+      : '<span style="background:#166534;color:#86efac;padding:4px 10px;border-radius:9999px;font-size:0.8rem;">✅ Clean</span>';
+    
     const thumb = img.annotated_url || img.original_url;
     const ts = img.created_at ? new Date(img.created_at).toLocaleString() : '';
-    return `<div class="img-card">
-      <img src="${thumb}" alt="img" loading="lazy"/>
-      <div class="info">
-        <div class="fname">${img.filename}</div>
-        <div class="badges">${detBadge}${statusBadge}</div>
-        <div class="ts">${ts}</div>
-        <div class="actions">
-          ${img.annotation_status!=='annotated'
-            ? `<button class="btn btn-amber btn-sm" onclick="annotateImg('${img.id}')">🏷️ Annotate</button>`
-            : `<button class="btn btn-green btn-sm" disabled>✅ Done</button>`}
+    
+    return `
+      <div style="background:#1e2937; border:1px solid #334155; border-radius:12px; overflow:hidden;">
+        <img src="${thumb}" style="width:100%; height:220px; object-fit:cover;" alt="img" loading="lazy"/>
+        <div style="padding:16px;">
+          <div style="font-weight:600; margin-bottom:8px; color:#e2e8f0;">${img.filename}</div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">${detBadge}${statusBadge}</div>
+          <div style="color:#64748b; font-size:0.85rem; margin-bottom:12px;">${ts}</div>
+          <div>
+            ${img.annotation_status!=='annotated'
+              ? `<button onclick="annotateImg('${img.id}')" style="width:100%; padding:10px; background:#d97706; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">🏷️ Annotate</button>`
+              : `<button disabled style="width:100%; padding:10px; background:#166534; color:#86efac; border:none; border-radius:8px; font-weight:600;">✅ Done</button>`}
+          </div>
         </div>
-      </div>
-    </div>`;
+      </div>`;
   }).join('');
 }
 
 async function annotateImg(id){
   const res = await fetch(`/annotate/${id}`,{method:'POST'});
-  const d   = await res.json();
+  const d = await res.json();
   if(d.success){
-    if(confirm('Image copied to annotation_images/.\nOpen Label Studio now?'))
+    if(confirm('Image copied to annotation folder.\nOpen Label Studio?')){
       window.open(d.label_studio_url,'_blank');
+    }
     allImages = allImages.map(i=> i.id===id ? {...i, annotation_status:'pending'} : i);
     applyFilter();
   }
@@ -119,12 +159,24 @@ async function annotateImg(id){
 loadImages();
 </script>
 
-<!-- Keep your dashboard CSS here -->
 <style>
-/* Paste all CSS from your old dashboard.html here */
-*{box-sizing:border-box;margin:0;padding:0}
-.page{max-width:1100px;margin:36px auto;padding:0 20px}
-h1{font-size:1.8rem;font-weight:700;color:#f1f5f9;margin-bottom:6px}
-/* ... rest of your styles ... */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.page {
+  max-width: 1200px;
+  margin: 36px auto;
+  padding: 0 20px;
+}
+h1 {
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin-bottom: 6px;
+}
+.sub {
+  color: #64748b;
+  font-size: 0.98rem;
+}
 </style>
 {% endblock %}
